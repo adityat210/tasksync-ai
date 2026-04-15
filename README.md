@@ -9,11 +9,13 @@ TaskSync is intended to be a full-stack serverless collaborative task platform b
 ### Frontend stack
 - Next.js
 - TypeScript
-- Tailwind CSS
 
-### Backend stack
-- FastAPI
-- SQLAlchemy
-- Alembic 
-- Pydantic
+### AWS Services
+- Amazon S3
+- Amazon CloudFront
+- Amazon Cognito
+- Amazon API Gateway
+- AWS Lambda
+- Amazon DynamoDB
+- Amazon CloudWatch
 
