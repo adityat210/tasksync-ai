@@ -25,74 +25,149 @@ export default function HomePage(){
 "use client";
 
 import { useState } from "react";
-import { createBoard, getBoard } from "../lib/api";
+import { createBoard, getBoard, createTask } from "../lib/api";
 
 type BoardItem = {
   PK: string;
   SK: string;
   boardId?: string;
+  taskId?: string;
   name?: string;
+  title?: string;
+  description?: string;
+  columnId?: string;
+  position?: number;
   createdAt?: string;
 };
 
 export default function Home() {
-  const [boardId, setBoardId] = useState("");
-  const [boardItems, setBoardItems] = useState<BoardItem[]>([]);
-  const [loading, setLoading] = useState(false);
+    const [boardId, setBoardId] = useState("");
+    const [boardItems, setBoardItems] = useState<BoardItem[]>([]);
+    const [taskTitle, setTaskTitle] = useState("")
+    const [loading, setLoading] = useState(false);
 
-  const handleCreateBoard = async () => {
-    setLoading(true);
+    const refreshBoard = async (id: string) => {
+        const items = await getBoard(id);
+        setBoardItems(items);
+    };
 
-    const board = await createBoard("My First Board");
+    const handleCreateBoard = async () => {
+        setLoading(true);
 
-    setBoardId(board.boardId);
+        const board = await createBoard("Adi's First Board");
 
-    const items = await getBoard(board.boardId);
-    setBoardItems(items);
+        setBoardId(board.boardId);
+        await refreshBoard(board.boardId);
 
-    setLoading(false);
-  };
+        setLoading(false);
+    };
 
-  return (
-    <main style={{ padding: 32 }}>
-      <h1>TaskSync</h1>
+    const handleCreateTask = async() => {
+        if (!boardId || !taskTitle.trim()) return;
 
-      <button onClick={handleCreateBoard} disabled={loading}>
-        {loading ? "Creating..." : "Create Board"}
-      </button>
+        setLoading(true);
 
-      {boardId && (
-        <section style={{ marginTop: 24 }}>
-          <h2>Current Board</h2>
-          <p>
-            <strong>Board ID:</strong> {boardId}
-          </p>
+        await createTask(boardId, {
+        title: taskTitle,
+        description: "",
+        columnId: "todo",
+        position: 0,
+        });
 
-          <div style={{ marginTop: 16 }}>
-            {boardItems.map((item) => (
-              <div
-                key={`${item.PK}-${item.SK}`}
+        setTaskTitle("");
+        await refreshBoard(boardId);
+
+        setLoading(false);
+    };
+
+    const boardMetadata = boardItems.find((item) => item.SK === "METADATA");
+    const tasks = boardItems.filter((item) => item.SK.startsWith("TASK#"));
+
+
+    return (
+        <main style={{ padding: 32 }}>
+        <h1>TaskSync</h1>
+
+        <button onClick={handleCreateBoard} disabled={loading}>
+            {loading ? "Loading..." : "Create Board"}
+        </button>
+
+        {boardId && (
+            <section style={{ marginTop: 24 }}>
+            <h2>{boardMetadata?.name || "Current Board"}</h2>
+
+            <p>
+                <strong>Board ID:</strong> {boardId}
+            </p>
+
+            <div style={{ marginTop: 24 }}>
+                <h3>Add Task</h3>
+
+                <input
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="Task title"
                 style={{
-                  border: "1px solid #ddd",
-                  borderRadius: 8,
-                  padding: 16,
-                  marginBottom: 12,
+                    padding: 8,
+                    marginRight: 8,
+                    border: "1px solid #ccc",
+                    borderRadius: 6,
                 }}
-              >
-                <p>
-                  <strong>Name:</strong> {item.name}
-                </p>
-                <p>
-                  <strong>Type:</strong> {item.SK}
-                </p>
-                <p>
-                  <strong>Created:</strong> {item.createdAt}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-    </main>
-  );
+                />
+
+                <button onClick={handleCreateTask} disabled={loading}>
+                Add Task
+                </button>
+            </div>
+
+            <div
+                style={{
+                marginTop: 32,
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 16,
+                }}
+            >
+                {["todo", "in-progress", "done"].map((column) => (
+                <div
+                    key={column}
+                    style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 8,
+                    padding: 16,
+                    minHeight: 250,
+                    }}
+                >
+                    <h3>
+                    {column === "todo"
+                        ? "Todo"
+                        : column === "in-progress"
+                        ? "In Progress"
+                        : "Done"}
+                    </h3>
+
+                    {tasks
+                    .filter((task) => task.columnId === column)
+                    .map((task) => (
+                        <div
+                        key={task.taskId}
+                        style={{
+                            border: "1px solid #ddd",
+                            borderRadius: 8,
+                            padding: 12,
+                            marginTop: 12,
+                            background: "white",
+                        }}
+                        >
+                        <strong>{task.title}</strong>
+                        {task.description && <p>{task.description}</p>}
+                        </div>
+                    ))}
+                </div>
+                ))}
+            </div>
+            </section>
+        )}
+        </main>
+    );
 }
