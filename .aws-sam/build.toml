@@ -7,6 +7,6 @@ architecture = "x86_64"
 handler = "dist/functions/boards/handler.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["BoardsFunction", "TasksFunction"]
+functions = ["CorsFunction", "BoardsFunction", "TasksFunction"]
 
 [layer_build_definitions]

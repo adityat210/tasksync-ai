@@ -36,5 +36,5 @@ export async function createTask(
     body: JSON.stringify(task),
   });
 
-  return res.json();
+  return await res.json();
 }

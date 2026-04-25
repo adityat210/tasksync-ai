@@ -35,6 +35,42 @@ Resources:
         KeyType: HASH
       - AttributeName: SK
         KeyType: RANGE
+  CorsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: CorsFunction
+      Handler: dist/functions/cors/handler.handler
+      Events:
+        OptionsBoards:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /boards
+            Method: OPTIONS
+        OptionsBoardById:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /boards/{boardId}
+            Method: OPTIONS
+        OptionsTasks:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /boards/{boardId}/tasks
+            Method: OPTIONS
+        OptionsTaskById:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /boards/{boardId}/tasks/{taskId}
+            Method: OPTIONS
+    Metadata:
+      SamResourceId: CorsFunction
   BoardsFunction:
     Type: AWS::Serverless::Function
     Properties:
