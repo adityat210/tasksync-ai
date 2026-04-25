@@ -1,7 +1,7 @@
 /**
  * landing page tentatively for scaffold
  * 
- */
+
 
 export default function HomePage(){
     return (
@@ -19,4 +19,26 @@ export default function HomePage(){
             </section>
         </main>
     );
+}
+    */
+
+"use client";
+
+import { createBoard } from "../lib/api";
+
+export default function Home() {
+  const handleCreateBoard = async () => {
+    const res = await createBoard("My First Board");
+    console.log("Board created:", res);
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>TaskSync</h1>
+
+      <button onClick={handleCreateBoard}>
+        Create Board
+      </button>
+    </div>
+  );
 }

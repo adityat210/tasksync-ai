@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: TaskSync serverless backend
+Description: TaskSync AWS serverless backend
 Globals:
   Function:
     Runtime: nodejs20.x
@@ -11,6 +11,15 @@ Globals:
         TABLE_NAME:
           Ref: TaskSyncTable
 Resources:
+  ServerlessRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      AlwaysDeploy: true
+      Cors:
+        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
+        AllowHeaders: '''Content-Type,Authorization'''
+        AllowOrigin: '''*'''
   TaskSyncTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -39,11 +48,15 @@ Resources:
         CreateBoard:
           Type: Api
           Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
             Path: /boards
             Method: POST
         GetBoard:
           Type: Api
           Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
             Path: /boards/{boardId}
             Method: GET
     Metadata:
@@ -61,16 +74,22 @@ Resources:
         CreateTask:
           Type: Api
           Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
             Path: /boards/{boardId}/tasks
             Method: POST
         UpdateTask:
           Type: Api
           Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
             Path: /boards/{boardId}/tasks/{taskId}
             Method: PUT
         DeleteTask:
           Type: Api
           Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
             Path: /boards/{boardId}/tasks/{taskId}
             Method: DELETE
     Metadata:
