@@ -11,7 +11,12 @@ export type EntityType =
 | "TASK"
 | "COMMENT";
 
-/* base shapes for records in dynamo */
+/** 
+ * base shapes for records in dynamo
+ * PK = partition key (what group of item does it belong to)
+ * SK = sort key (what order is it in in that group)
+ * */ 
+
 export interface DynamoRecord {
   PK: string;
   SK: string;
