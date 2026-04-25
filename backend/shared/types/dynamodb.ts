@@ -12,7 +12,13 @@ export type EntityType =
 | "COMMENT";
 
 /* base shapes for records in dynamo */
+export interface DynamoRecord {
+  PK: string;
+  SK: string;
+  entityType: EntityType;
+}
 
+/*helpers keeping strings formattedly as expected*/
 export const keys = {
     userPk: (userId: string) => `USER#${userId}`,
     workspacePk: (workspaceId: string) => `WORKSPACE#${workspaceId}`,
