@@ -7,7 +7,8 @@
     "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node", "aws-lambda"]
   },
   "include": ["functions/**/*.ts", "shared/**/*.ts"],
   "exclude": ["node_modules", "dist"]
