@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: TaskSync serverless backend
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_NAME:
+          Ref: TaskSyncTable
+Resources:
+  TaskSyncTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TaskSyncTable
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: PK
+        AttributeType: S
+      - AttributeName: SK
+        AttributeType: S
+      KeySchema:
+      - AttributeName: PK
+        KeyType: HASH
+      - AttributeName: SK
+        KeyType: RANGE
+  BoardsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: BoardsFunction
+      Handler: dist/functions/boards/handler.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: TaskSyncTable
+      Events:
+        CreateBoard:
+          Type: Api
+          Properties:
+            Path: /boards
+            Method: POST
+        GetBoard:
+          Type: Api
+          Properties:
+            Path: /boards/{boardId}
+            Method: GET
+    Metadata:
+      SamResourceId: BoardsFunction
+  TasksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: TasksFunction
+      Handler: dist/functions/tasks/handler.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: TaskSyncTable
+      Events:
+        CreateTask:
+          Type: Api
+          Properties:
+            Path: /boards/{boardId}/tasks
+            Method: POST
+        UpdateTask:
+          Type: Api
+          Properties:
+            Path: /boards/{boardId}/tasks/{taskId}
+            Method: PUT
+        DeleteTask:
+          Type: Api
+          Properties:
+            Path: /boards/{boardId}/tasks/{taskId}
+            Method: DELETE
+    Metadata:
+      SamResourceId: TasksFunction
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod
