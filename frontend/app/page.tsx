@@ -24,7 +24,7 @@ export default function HomePage(){
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createBoard, createTask, getBoard, updateTask } from "../lib/api";
 
 type BoardItem = {
@@ -51,12 +51,23 @@ export default function Home() {
     setBoardItems(items);
   };
 
+  useEffect(() => {
+    const savedBoardId = localStorage.getItem("tasksync-board-id");
+
+    if (savedBoardId) {
+      setBoardId(savedBoardId);
+      refreshBoard(savedBoardId);
+    }
+  }, []);
+
   const handleCreateBoard = async () => {
     setLoading(true);
 
     const board = await createBoard("Adi's First Board");
 
     setBoardId(board.boardId);
+    localStorage.setItem("tasksync-board-id", board.boardId);
+
     await refreshBoard(board.boardId);
 
     setLoading(false);
@@ -97,6 +108,12 @@ export default function Home() {
     setLoading(false);
   };
 
+  const handleClearBoard = () => {
+    localStorage.removeItem("tasksync-board-id");
+    setBoardId("");
+    setBoardItems([]);
+  };
+
   const boardMetadata = boardItems.find((item) => item.SK === "METADATA");
   const tasks = boardItems.filter((item) => item.SK.startsWith("TASK#"));
 
@@ -107,6 +124,16 @@ export default function Home() {
       <button onClick={handleCreateBoard} disabled={loading}>
         {loading ? "Loading..." : "Create Board"}
       </button>
+
+      {boardId && (
+        <button
+          onClick={handleClearBoard}
+          disabled={loading}
+          style={{ marginLeft: 8 }}
+        >
+          Clear Active Board
+        </button>
+      )}
 
       {boardId && (
         <section style={{ marginTop: 24 }}>
