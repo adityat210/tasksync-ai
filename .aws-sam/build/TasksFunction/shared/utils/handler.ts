@@ -1,5 +1,12 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
+const headers = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+};
+
 export function createHandler(
   fn: (event: APIGatewayProxyEvent) => Promise<any>
 ) {
@@ -9,10 +16,7 @@ export function createHandler(
 
       return {
         statusCode: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers,
         body: JSON.stringify(result),
       };
     } catch (error: any) {
@@ -20,6 +24,7 @@ export function createHandler(
 
       return {
         statusCode: 500,
+        headers,
         body: JSON.stringify({
           error: "Internal server error",
         }),

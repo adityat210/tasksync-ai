@@ -69,8 +69,48 @@ Resources:
               Ref: ServerlessRestApi
             Path: /boards/{boardId}/tasks/{taskId}
             Method: OPTIONS
+        OptionsWorkspaces:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces
+            Method: OPTIONS
+        OptionsWorkspaceById:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces/{workspaceId}
+            Method: OPTIONS
     Metadata:
       SamResourceId: CorsFunction
+  WorkspacesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: WorkspacesFunction
+      Handler: dist/functions/workspaces/handler.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: TaskSyncTable
+      Events:
+        CreateWorkspace:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces
+            Method: POST
+        GetWorkspace:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces/{workspaceId}
+            Method: GET
+    Metadata:
+      SamResourceId: WorkspacesFunction
   BoardsFunction:
     Type: AWS::Serverless::Function
     Properties:
