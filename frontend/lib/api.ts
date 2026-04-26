@@ -36,3 +36,25 @@ export async function createTask(
 
   return await res.json();
 }
+
+export async function updateTask(
+    boardId: string,
+    taskId: string,
+    task: {
+        title: string;
+        description?: string;
+        columnId: string;   
+        position?: number;
+    }
+) 
+{
+    const res = await fetch(`${API_URL}/boards/${boardId}/tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(task),
+    });
+
+    return await res.json();
+}
