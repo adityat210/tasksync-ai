@@ -1,16 +1,16 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
-export async function createBoard(name: string) {
-  const res = await fetch(`${API_URL}/boards`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ name }),
-  });
+//export async function createBoard(name: string) {
+  //const res = await fetch(`${API_URL}/boards`, {
+   // method: "POST",
+   // headers: {
+     // "Content-Type": "application/json",
+    //},
+   // body: JSON.stringify({ name }),
+  //});
 
-  return await res.json();
-}
+  //return await res.json();
+//}
 
 export async function getBoard(boardId: string) {
   const res = await fetch(`${API_URL}/boards/${boardId}`);
@@ -57,4 +57,33 @@ export async function updateTask(
     });
 
     return await res.json();
+}
+
+//creating the workspace
+export async function createWorkspace(name: string) {
+  const res = await fetch(`${API_URL}/workspaces`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  return res.json();
+}
+
+//creating the board inside the workspace
+export async function createBoard(workspaceId: string, name: string) {
+  const res = await fetch(
+    `${API_URL}/workspaces/${workspaceId}/boards`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+    }
+  );
+
+  return res.json();
 }

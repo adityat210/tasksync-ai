@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBoard, createTask, getBoard, updateTask } from "../lib/api";
+import { createBoard, createTask, getBoard, updateTask, createWorkspace } from "../lib/api";
 
 type BoardItem = {
   PK: string;
@@ -27,6 +27,7 @@ export default function Home() {
   const [boardItems, setBoardItems] = useState<BoardItem[]>([]);
   const [taskTitle, setTaskTitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState("");
 
   const refreshBoard = async (id: string) => {
     const items = await getBoard(id);
@@ -34,18 +35,32 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const savedBoardId = localStorage.getItem("tasksync-board-id");
+    const savedWorkspace = localStorage.getItem("tasksync-workspace-id");
+    const savedBoard = localStorage.getItem("tasksync-board-id");
 
-    if (savedBoardId) {
-      setBoardId(savedBoardId);
-      refreshBoard(savedBoardId);
+    if (savedWorkspace) {
+      setWorkspaceId(savedWorkspace);
+    }
+
+    if (savedBoard) {
+      setBoardId(savedBoard);
+      refreshBoard(savedBoard);
     }
   }, []);
 
   const handleCreateBoard = async () => {
     setLoading(true);
+    let wsId = workspaceId;
 
-    const board = await createBoard("Adi's First Board");
+    if (!wsId) {
+      const ws = await createWorkspace("Adi Workspace");
+      wsId = ws.workspaceId;
+
+      setWorkspaceId(wsId);
+      localStorage.setItem("tasksync-workspace-id", wsId);
+  }
+
+    const board = await createBoard(wsId, "Adi's First Board");
 
     setBoardId(board.boardId);
     localStorage.setItem("tasksync-board-id", board.boardId);
@@ -89,9 +104,11 @@ export default function Home() {
 
   const handleClearBoard = () => {
     localStorage.removeItem("tasksync-board-id");
+    localStorage.removeItem("tasksync-workspace-id");
     setBoardId("");
+    setWorkspaceId("");
+    //setTaskTitle("");
     setBoardItems([]);
-    setTaskTitle("");
   };
 
   const boardMetadata = boardItems.find((item) => item.SK === "METADATA");
@@ -221,6 +238,15 @@ export default function Home() {
                 }}
               >
                 Board ID: {boardId}
+              </p>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  color: "#6b7280",
+                  fontSize: 13,
+                  }}
+              >
+                Workspace ID: {workspaceId}
               </p>
 
               <div
