@@ -9,25 +9,18 @@ export const handler = createHandler(async (event) => {
   const method = event.httpMethod;
   const body = JSON.parse(event.body || "{}");
 
-  const taskId = event.pathParameters?.taskId;
-
-  if (!taskId) {
-    return {
-      error: "Missing taskId",
-    };
-  }
+  const workspaceId = event.pathParameters?.workspaceId;
 
   if (method === "POST") {
-    const commentId = randomUUID();
+    const newWorkspaceId = randomUUID();
 
     const item = {
-      PK: `TASK#${taskId}`,
-      SK: `COMMENT#${new Date().toISOString()}#${commentId}`,
-      commentId,
-      taskId,
-      userId: body.userId || "unknown-user",
-      body: body.body || "",
+      PK: `WORKSPACE#${newWorkspaceId}`,
+      SK: "METADATA",
+      workspaceId: newWorkspaceId,
+      name: body.name || "Untitled Workspace",
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     await db.send(
@@ -41,13 +34,18 @@ export const handler = createHandler(async (event) => {
   }
 
   if (method === "GET") {
+    if (!workspaceId) {
+      return {
+        error: "Missing workspaceId",
+      };
+    }
+
     const result = await db.send(
       new QueryCommand({
         TableName: TABLE_NAME,
-        KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+        KeyConditionExpression: "PK = :pk",
         ExpressionAttributeValues: {
-          ":pk": `TASK#${taskId}`,
-          ":sk": "COMMENT#",
+          ":pk": `WORKSPACE#${workspaceId}`,
         },
       })
     );
@@ -56,6 +54,6 @@ export const handler = createHandler(async (event) => {
   }
 
   return {
-    message: "Comments endpoint working",
+    message: "Workspaces endpoint working",
   };
 });

@@ -21,6 +21,28 @@ Resources:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
+
+  CommentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: dist/functions/comments/handler.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TaskSyncTable
+      Events:
+        CreateComment:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /tasks/{taskId}/comments
+            Method: POST
+        ListComments:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /tasks/{taskId}/comments
+            Method: GET
   
   UsersFunction:
     Type: AWS::Serverless::Function
@@ -126,8 +148,14 @@ Resources:
             RestApiId: !Ref ServerlessRestApi
             Path: /workspaces/{workspaceId}/members
             Method: OPTIONS
+        OptionsComments:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /tasks/{taskId}/comments
+            Method: OPTIONS
 
-            
+
   WorkspacesFunction:
     Type: AWS::Serverless::Function
     Properties:
