@@ -80,6 +80,12 @@ Resources:
             RestApiId: !Ref ServerlessRestApi
             Path: /workspaces/{workspaceId}
             Method: OPTIONS
+        OptionsWorkspaceBoards:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /workspaces/{workspaceId}/boards
+            Method: OPTIONS
 
   WorkspacesFunction:
     Type: AWS::Serverless::Function
@@ -123,6 +129,18 @@ Resources:
           Properties:
             RestApiId: !Ref ServerlessRestApi
             Path: /boards/{boardId}
+            Method: GET
+        CreateWorkspaceBoard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /workspaces/{workspaceId}/boards
+            Method: POST
+        ListWorkspaceBoards:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /workspaces/{workspaceId}/boards
             Method: GET
 
   TasksFunction:

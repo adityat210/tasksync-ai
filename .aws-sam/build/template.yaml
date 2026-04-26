@@ -83,6 +83,13 @@ Resources:
               Ref: ServerlessRestApi
             Path: /workspaces/{workspaceId}
             Method: OPTIONS
+        OptionsWorkspaceBoards:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces/{workspaceId}/boards
+            Method: OPTIONS
     Metadata:
       SamResourceId: CorsFunction
   WorkspacesFunction:
@@ -134,6 +141,20 @@ Resources:
             RestApiId:
               Ref: ServerlessRestApi
             Path: /boards/{boardId}
+            Method: GET
+        CreateWorkspaceBoard:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces/{workspaceId}/boards
+            Method: POST
+        ListWorkspaceBoards:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces/{workspaceId}/boards
             Method: GET
     Metadata:
       SamResourceId: BoardsFunction
