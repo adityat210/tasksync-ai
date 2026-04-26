@@ -248,7 +248,6 @@ export default function Home() {
               >
                 Workspace ID: {workspaceId}
               </p>
-
               <div
                 style={{
                   marginTop: 20,

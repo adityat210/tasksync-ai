@@ -20,6 +20,39 @@ Resources:
         AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
         AllowHeaders: '''Content-Type,Authorization'''
         AllowOrigin: '''*'''
+  UsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: UsersFunction
+      Handler: dist/functions/users/handler.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: TaskSyncTable
+      Events:
+        CreateUser:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /users
+            Method: POST
+        AddWorkspaceMember:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces/{workspaceId}/members
+            Method: POST
+        ListWorkspaceMembers:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces/{workspaceId}/members
+            Method: GET
+    Metadata:
+      SamResourceId: UsersFunction
   TaskSyncTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -89,6 +122,20 @@ Resources:
             RestApiId:
               Ref: ServerlessRestApi
             Path: /workspaces/{workspaceId}/boards
+            Method: OPTIONS
+        OptionsUsers:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /users
+            Method: OPTIONS
+        OptionsWorkspaceMembers:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /workspaces/{workspaceId}/members
             Method: OPTIONS
     Metadata:
       SamResourceId: CorsFunction
