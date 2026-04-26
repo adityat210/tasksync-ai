@@ -1,27 +1,3 @@
-/**
- * landing page tentatively for scaffold
- * 
-
-
-export default function HomePage(){
-    return (
-        <main className="page">
-            <section className="hero">
-                <p className="eyebrow">TaskSync AI</p>
-                <h1 className="title">Serverless, AI-equipped task management application.</h1>
-                <p className="description">Welcome to TaskSync AI, your ultimate task management solution. Our serverless architecture ensures seamless performance, while our AI capabilities help you stay organized and productive. Experience the future of task management with TaskSync AI.</p>
-                <div className="card">
-                    <h2>Get Started</h2>
-                    <p>
-                        Frontend and backend base in place, next will add API, entity modeling, authentication and taskboard's workflows
-                    </p>
-                </div>
-            </section>
-        </main>
-    );
-}
-    */
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -39,6 +15,12 @@ type BoardItem = {
   position?: number;
   createdAt?: string;
 };
+
+const columns = [
+  { id: "todo", label: "Todo" },
+  { id: "in-progress", label: "In Progress" },
+  { id: "done", label: "Done" },
+];
 
 export default function Home() {
   const [boardId, setBoardId] = useState("");
@@ -69,7 +51,6 @@ export default function Home() {
     localStorage.setItem("tasksync-board-id", board.boardId);
 
     await refreshBoard(board.boardId);
-
     setLoading(false);
   };
 
@@ -87,7 +68,6 @@ export default function Home() {
 
     setTaskTitle("");
     await refreshBoard(boardId);
-
     setLoading(false);
   };
 
@@ -104,7 +84,6 @@ export default function Home() {
     });
 
     await refreshBoard(boardId);
-
     setLoading(false);
   };
 
@@ -112,129 +91,333 @@ export default function Home() {
     localStorage.removeItem("tasksync-board-id");
     setBoardId("");
     setBoardItems([]);
+    setTaskTitle("");
   };
 
   const boardMetadata = boardItems.find((item) => item.SK === "METADATA");
   const tasks = boardItems.filter((item) => item.SK.startsWith("TASK#"));
 
   return (
-    <main style={{ padding: 32 }}>
-      <h1>TaskSync</h1>
-
-      <button onClick={handleCreateBoard} disabled={loading}>
-        {loading ? "Loading..." : "Create Board"}
-      </button>
-
-      {boardId && (
-        <button
-          onClick={handleClearBoard}
-          disabled={loading}
-          style={{ marginLeft: 8 }}
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f6f7fb",
+        padding: "40px",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        color: "#111827",
+      }}
+    >
+      <section
+        style={{
+          maxWidth: 1200,
+          margin: "0 auto",
+        }}
+      >
+        <div
+          style={{
+            marginBottom: 32,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 24,
+          }}
         >
-          Clear Active Board
-        </button>
-      )}
-
-      {boardId && (
-        <section style={{ marginTop: 24 }}>
-          <h2>{boardMetadata?.name || "Current Board"}</h2>
-
-          <p>
-            <strong>Board ID:</strong> {boardId}
-          </p>
-
-          <div style={{ marginTop: 24 }}>
-            <h3>Add Task</h3>
-
-            <input
-              value={taskTitle}
-              onChange={(e) => setTaskTitle(e.target.value)}
-              placeholder="Task title"
+          <div>
+            <p
               style={{
-                padding: 8,
-                marginRight: 8,
-                border: "1px solid #ccc",
-                borderRadius: 6,
+                margin: 0,
+                color: "#6366f1",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                fontSize: 12,
               }}
-            />
+            >
+              TaskSync AI
+            </p>
 
-            <button onClick={handleCreateTask} disabled={loading}>
-              Add Task
-            </button>
+            <h1
+              style={{
+                margin: "8px 0",
+                fontSize: 42,
+                lineHeight: 1.1,
+              }}
+            >
+              Serverless task management.
+            </h1>
+
+            <p
+              style={{
+                margin: 0,
+                color: "#6b7280",
+                fontSize: 16,
+                maxWidth: 620,
+              }}
+            >
+              Create boards, add tasks, and move work across columns using a
+              deployed AWS Lambda, API Gateway, and DynamoDB backend.
+            </p>
           </div>
 
-          <div
-            style={{
-              marginTop: 32,
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 16,
-            }}
-          >
-            {["todo", "in-progress", "done"].map((column) => (
-              <div
-                key={column}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={handleCreateBoard}
+              disabled={loading}
+              style={{
+                border: "none",
+                background: "#111827",
+                color: "white",
+                padding: "10px 16px",
+                borderRadius: 10,
+                cursor: loading ? "not-allowed" : "pointer",
+                fontWeight: 600,
+              }}
+            >
+              {loading ? "Loading..." : "Create Board"}
+            </button>
+
+            {boardId && (
+              <button
+                onClick={handleClearBoard}
+                disabled={loading}
                 style={{
-                  border: "1px solid #ddd",
-                  borderRadius: 8,
-                  padding: 16,
-                  minHeight: 250,
+                  border: "1px solid #d1d5db",
+                  background: "white",
+                  color: "#374151",
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  fontWeight: 600,
                 }}
               >
-                <h3>
-                  {column === "todo"
-                    ? "Todo"
-                    : column === "in-progress"
-                    ? "In Progress"
-                    : "Done"}
-                </h3>
+                Clear Board
+              </button>
+            )}
+          </div>
+        </div>
 
-                {tasks
-                  .filter((task) => task.columnId === column)
-                  .map((task) => (
+        {boardId ? (
+          <section>
+            <div
+              style={{
+                background: "white",
+                border: "1px solid #e5e7eb",
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 24,
+                boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 24 }}>
+                {boardMetadata?.name || "Current Board"}
+              </h2>
+
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  color: "#6b7280",
+                  fontSize: 13,
+                }}
+              >
+                Board ID: {boardId}
+              </p>
+
+              <div
+                style={{
+                  marginTop: 20,
+                  display: "flex",
+                  gap: 8,
+                }}
+              >
+                <input
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateTask();
+                  }}
+                  placeholder="Add a new task..."
+                  style={{
+                    flex: 1,
+                    padding: "12px 14px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 10,
+                    fontSize: 15,
+                    outline: "none",
+                  }}
+                />
+
+                <button
+                  onClick={handleCreateTask}
+                  disabled={loading || !taskTitle.trim()}
+                  style={{
+                    border: "none",
+                    background:
+                      loading || !taskTitle.trim() ? "#9ca3af" : "#4f46e5",
+                    color: "white",
+                    padding: "12px 18px",
+                    borderRadius: 10,
+                    cursor:
+                      loading || !taskTitle.trim() ? "not-allowed" : "pointer",
+                    fontWeight: 700,
+                  }}
+                >
+                  Add Task
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 20,
+              }}
+            >
+              {columns.map((column) => {
+                const columnTasks = tasks.filter(
+                  (task) => task.columnId === column.id
+                );
+
+                return (
+                  <div
+                    key={column.id}
+                    style={{
+                      background: "#eef0f6",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 16,
+                      padding: 16,
+                      minHeight: 360,
+                    }}
+                  >
                     <div
-                      key={task.taskId}
                       style={{
-                        border: "1px solid #ddd",
-                        borderRadius: 8,
-                        padding: 12,
-                        marginTop: 12,
-                        background: "white",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 12,
                       }}
                     >
-                      <strong>{task.title}</strong>
+                      <h3 style={{ margin: 0, fontSize: 16 }}>
+                        {column.label}
+                      </h3>
 
-                      {task.description && <p>{task.description}</p>}
-
-                      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-                        {["todo", "in-progress", "done"]
-                          .filter((targetColumn) => targetColumn !== task.columnId)
-                          .map((targetColumn) => (
-                            <button
-                              key={targetColumn}
-                              onClick={() => handleMoveTask(task, targetColumn)}
-                              disabled={loading}
-                              style={{
-                                fontSize: 12,
-                                padding: "4px 8px",
-                              }}
-                            >
-                              Move to{" "}
-                              {targetColumn === "todo"
-                                ? "Todo"
-                                : targetColumn === "in-progress"
-                                ? "In Progress"
-                                : "Done"}
-                            </button>
-                          ))}
-                      </div>
+                      <span
+                        style={{
+                          background: "white",
+                          border: "1px solid #d1d5db",
+                          borderRadius: 999,
+                          padding: "2px 8px",
+                          fontSize: 12,
+                          color: "#6b7280",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {columnTasks.length}
+                      </span>
                     </div>
-                  ))}
-              </div>
-            ))}
+
+                    {columnTasks.length === 0 && (
+                      <p
+                        style={{
+                          color: "#9ca3af",
+                          fontSize: 14,
+                          marginTop: 24,
+                        }}
+                      >
+                        No tasks yet.
+                      </p>
+                    )}
+
+                    {columnTasks.map((task) => (
+                      <div
+                        key={task.taskId}
+                        style={{
+                          background: "white",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 14,
+                          padding: 14,
+                          marginTop: 12,
+                          boxShadow: "0 8px 18px rgba(15, 23, 42, 0.06)",
+                        }}
+                      >
+                        <strong
+                          style={{
+                            display: "block",
+                            fontSize: 15,
+                            marginBottom: 8,
+                          }}
+                        >
+                          {task.title}
+                        </strong>
+
+                        <p
+                          style={{
+                            margin: 0,
+                            color: "#9ca3af",
+                            fontSize: 12,
+                          }}
+                        >
+                          Status: {column.label}
+                        </p>
+
+                        <div
+                          style={{
+                            marginTop: 14,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 8,
+                          }}
+                        >
+                          {columns
+                            .filter((target) => target.id !== task.columnId)
+                            .map((target) => (
+                              <button
+                                key={target.id}
+                                onClick={() =>
+                                  handleMoveTask(task, target.id)
+                                }
+                                disabled={loading}
+                                style={{
+                                  border: "1px solid #d1d5db",
+                                  background: "white",
+                                  color: "#374151",
+                                  borderRadius: 999,
+                                  padding: "6px 10px",
+                                  fontSize: 12,
+                                  cursor: loading
+                                    ? "not-allowed"
+                                    : "pointer",
+                                }}
+                              >
+                                Move to {target.label}
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : (
+          <div
+            style={{
+              background: "white",
+              border: "1px solid #e5e7eb",
+              borderRadius: 16,
+              padding: 32,
+              boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>No active board yet</h2>
+            <p style={{ color: "#6b7280", marginBottom: 0 }}>
+              Create a board to start adding and moving tasks.
+            </p>
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </main>
   );
 }
