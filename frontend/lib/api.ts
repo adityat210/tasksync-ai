@@ -87,3 +87,35 @@ export async function createBoard(workspaceId: string, name: string) {
 
   return res.json();
 }
+
+export async function createUser(user: { name: string; email: string }) {
+  const res = await fetch(`${API_URL}/users`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(user),
+  });
+
+  return await res.json();
+}
+
+export async function addWorkspaceMember(
+  workspaceId: string,
+  member: { userId: string; role: string }
+) {
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/members`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(member),
+  });
+
+  return await res.json();
+}
+
+export async function getWorkspaceMembers(workspaceId: string) {
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/members`);
+  return await res.json();
+}

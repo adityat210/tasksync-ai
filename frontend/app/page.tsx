@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBoard, createTask, getBoard, updateTask, createWorkspace } from "../lib/api";
+import {
+  addWorkspaceMember,
+  createBoard,
+  createTask,
+  createUser,
+  createWorkspace,
+  getBoard,
+  getWorkspaceMembers,
+  updateTask,
+} from "../lib/api";
 
 type BoardItem = {
   PK: string;
@@ -14,6 +23,8 @@ type BoardItem = {
   columnId?: string;
   position?: number;
   createdAt?: string;
+  userId?: string;
+  role?: string;
 };
 
 const columns = [
@@ -24,10 +35,12 @@ const columns = [
 
 export default function Home() {
   const [boardId, setBoardId] = useState("");
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [userId, setUserId] = useState("");
+  const [members, setMembers] = useState<BoardItem[]>([]);
   const [boardItems, setBoardItems] = useState<BoardItem[]>([]);
   const [taskTitle, setTaskTitle] = useState("");
   const [loading, setLoading] = useState(false);
-  const [workspaceId, setWorkspaceId] = useState("");
 
   const refreshBoard = async (id: string) => {
     const items = await getBoard(id);
@@ -37,9 +50,13 @@ export default function Home() {
   useEffect(() => {
     const savedWorkspace = localStorage.getItem("tasksync-workspace-id");
     const savedBoard = localStorage.getItem("tasksync-board-id");
+    const savedUser = localStorage.getItem("tasksync-user-id");
+
+    if (savedUser) setUserId(savedUser);
 
     if (savedWorkspace) {
       setWorkspaceId(savedWorkspace);
+      getWorkspaceMembers(savedWorkspace).then(setMembers);
     }
 
     if (savedBoard) {
@@ -48,9 +65,28 @@ export default function Home() {
     }
   }, []);
 
+  const ensureDemoUser = async () => {
+    let currentUserId = userId;
+
+    if (!currentUserId) {
+      const user = await createUser({
+        name: "Adi",
+        email: "adi@example.com",
+      });
+
+      currentUserId = user.userId;
+      setUserId(currentUserId);
+      localStorage.setItem("tasksync-user-id", currentUserId);
+    }
+
+    return currentUserId;
+  };
+
   const handleCreateBoard = async () => {
     setLoading(true);
+
     let wsId = workspaceId;
+    const currentUserId = await ensureDemoUser();
 
     if (!wsId) {
       const ws = await createWorkspace("Adi Workspace");
@@ -58,7 +94,15 @@ export default function Home() {
 
       setWorkspaceId(wsId);
       localStorage.setItem("tasksync-workspace-id", wsId);
-  }
+
+      await addWorkspaceMember(wsId, {
+        userId: currentUserId,
+        role: "owner",
+      });
+
+      const workspaceMembers = await getWorkspaceMembers(wsId);
+      setMembers(workspaceMembers);
+    }
 
     const board = await createBoard(wsId, "Adi's First Board");
 
@@ -105,9 +149,13 @@ export default function Home() {
   const handleClearBoard = () => {
     localStorage.removeItem("tasksync-board-id");
     localStorage.removeItem("tasksync-workspace-id");
+    localStorage.removeItem("tasksync-user-id");
+
     setBoardId("");
     setWorkspaceId("");
-    //setTaskTitle("");
+    setUserId("");
+    setMembers([]);
+    setTaskTitle("");
     setBoardItems([]);
   };
 
@@ -120,17 +168,11 @@ export default function Home() {
         minHeight: "100vh",
         background: "#f6f7fb",
         padding: "40px",
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         color: "#111827",
       }}
     >
-      <section
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-        }}
-      >
+      <section style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div
           style={{
             marginBottom: 32,
@@ -154,13 +196,7 @@ export default function Home() {
               TaskSync AI
             </p>
 
-            <h1
-              style={{
-                margin: "8px 0",
-                fontSize: 42,
-                lineHeight: 1.1,
-              }}
-            >
+            <h1 style={{ margin: "8px 0", fontSize: 42, lineHeight: 1.1 }}>
               Serverless task management.
             </h1>
 
@@ -230,31 +266,23 @@ export default function Home() {
                 {boardMetadata?.name || "Current Board"}
               </h2>
 
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  color: "#6b7280",
-                  fontSize: 13,
-                }}
-              >
+              <p style={{ margin: "8px 0 0", color: "#6b7280", fontSize: 13 }}>
                 Board ID: {boardId}
               </p>
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  color: "#6b7280",
-                  fontSize: 13,
-                  }}
-              >
+
+              <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
                 Workspace ID: {workspaceId}
               </p>
-              <div
-                style={{
-                  marginTop: 20,
-                  display: "flex",
-                  gap: 8,
-                }}
-              >
+
+              <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
+                Demo User ID: {userId || "Not created yet"}
+              </p>
+
+              <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
+                Members: {members.length}
+              </p>
+
+              <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
                 <input
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
