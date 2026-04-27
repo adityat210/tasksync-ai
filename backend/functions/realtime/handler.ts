@@ -1,6 +1,7 @@
 import { DeleteCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { db } from "../../shared/db/client";
 
+
 const TABLE_NAME = process.env.TABLE_NAME!;
 
 export const handler = async (event: any) => {
@@ -12,8 +13,8 @@ export const handler = async (event: any) => {
       new PutCommand({
         TableName: TABLE_NAME,
         Item: {
-          PK: `CONNECTION#${connectionId}`,
-          SK: "METADATA",
+          PK: "CONNECTIONS",
+          SK: `CONNECTION#${connectionId}`,
           connectionId,
           createdAt: new Date().toISOString(),
         },
@@ -31,8 +32,8 @@ export const handler = async (event: any) => {
       new DeleteCommand({
         TableName: TABLE_NAME,
         Key: {
-          PK: `CONNECTION#${connectionId}`,
-          SK: "METADATA",
+          PK: "CONNECTIONS",
+          SK: `CONNECTION#${connectionId}`,
         },
       })
     );

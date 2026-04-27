@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
-import { PutCommand, QueryCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+import {DeleteCommand,PutCommand,QueryCommand,UpdateCommand,} from "@aws-sdk/lib-dynamodb";
 import { db } from "../../shared/db/client";
+import { broadcastMessage } from "../../shared/realtime/broadcast";
 import { createHandler } from "../../shared/utils/handler";
 
 const TABLE_NAME = process.env.TABLE_NAME!;
@@ -27,8 +28,10 @@ export const handler = createHandler(async (event) => {
       boardId,
       title: body.title || "Untitled Task",
       description: body.description || "",
-      status: body.status || "todo",
+      status: body.status || body.columnId || "todo",
+      columnId: body.columnId || body.status || "todo",
       assigneeUserId: body.assigneeUserId || "",
+      position: body.position ?? 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -39,6 +42,13 @@ export const handler = createHandler(async (event) => {
         Item: item,
       })
     );
+
+    await broadcastMessage({
+      type: "BOARD_UPDATED",
+      boardId,
+      action: "TASK_CREATED",
+      taskId: newTaskId,
+    });
 
     return item;
   }
@@ -63,6 +73,9 @@ export const handler = createHandler(async (event) => {
       return { error: "Missing taskId" };
     }
 
+    const nextStatus = body.status || body.columnId || "todo";
+    const nextColumnId = body.columnId || body.status || "todo";
+
     const result = await db.send(
       new UpdateCommand({
         TableName: TABLE_NAME,
@@ -71,20 +84,30 @@ export const handler = createHandler(async (event) => {
           SK: `TASK#${taskId}`,
         },
         UpdateExpression:
-          "SET title = :title, description = :description, #status = :status, assigneeUserId = :assigneeUserId, updatedAt = :updatedAt",
+          "SET title = :title, description = :description, #status = :status, columnId = :columnId, assigneeUserId = :assigneeUserId, #position = :position, updatedAt = :updatedAt",
         ExpressionAttributeNames: {
           "#status": "status",
+          "#position": "position",
         },
         ExpressionAttributeValues: {
           ":title": body.title || "Untitled Task",
           ":description": body.description || "",
-          ":status": body.status || "todo",
+          ":status": nextStatus,
+          ":columnId": nextColumnId,
           ":assigneeUserId": body.assigneeUserId || "",
+          ":position": body.position ?? 0,
           ":updatedAt": new Date().toISOString(),
         },
         ReturnValues: "ALL_NEW",
       })
     );
+
+    await broadcastMessage({
+      type: "BOARD_UPDATED",
+      boardId,
+      action: "TASK_UPDATED",
+      taskId,
+    });
 
     return result.Attributes;
   }
@@ -103,6 +126,13 @@ export const handler = createHandler(async (event) => {
         },
       })
     );
+
+    await broadcastMessage({
+      type: "BOARD_UPDATED",
+      boardId,
+      action: "TASK_DELETED",
+      taskId,
+    });
 
     return { message: "Task deleted", taskId };
   }

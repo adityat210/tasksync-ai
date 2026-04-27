@@ -10,6 +10,8 @@ Globals:
       Variables:
         TABLE_NAME:
           Ref: TaskSyncTable
+        WS_API_ENDPOINT:
+          Fn::Sub: https://${RealtimeApi}.execute-api.${AWS::Region}.amazonaws.com/Prod
 Resources:
   ServerlessRestApi:
     Type: AWS::Serverless::Api
@@ -313,6 +315,12 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: TaskSyncTable
+      - Statement:
+        - Effect: Allow
+          Action:
+          - execute-api:ManageConnections
+          Resource:
+            Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RealtimeApi}/Prod/POST/@connections/*
       Events:
         CreateTask:
           Type: Api
