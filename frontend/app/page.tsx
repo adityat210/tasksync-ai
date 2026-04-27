@@ -13,17 +13,18 @@ import {
   getWorkspaceMembers,
   updateTask,
 } from "../lib/api";
+import { confirmSignUp, signIn, signUp } from "../lib/auth";
 
 type BoardItem = {
   PK: string;
   SK: string;
   boardId?: string;
   taskId?: string;
-  status?: string;
   name?: string;
   title?: string;
   description?: string;
   columnId?: string;
+  status?: string;
   position?: number;
   createdAt?: string;
   userId?: string;
@@ -45,7 +46,6 @@ const columns = [
 ];
 
 export default function Home() {
-  const [realtimeStatus, setRealtimeStatus] = useState("Disconnected");
   const [boardId, setBoardId] = useState("");
   const [workspaceId, setWorkspaceId] = useState("");
   const [userId, setUserId] = useState("");
@@ -53,12 +53,21 @@ export default function Home() {
   const [boardItems, setBoardItems] = useState<BoardItem[]>([]);
   const [taskTitle, setTaskTitle] = useState("");
   const [loading, setLoading] = useState(false);
+
   const [commentsByTask, setCommentsByTask] = useState<
     Record<string, CommentItem[]>
   >({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>(
     {}
   );
+
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [confirmCode, setConfirmCode] = useState("");
+  const [authToken, setAuthToken] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+
+  const [realtimeStatus, setRealtimeStatus] = useState("Disconnected");
 
   const refreshCommentsForTasks = async (tasksToLoad: BoardItem[]) => {
     const nextComments: Record<string, CommentItem[]> = {};
@@ -79,7 +88,7 @@ export default function Home() {
     setBoardItems(items);
 
     const loadedTasks = items.filter((item: BoardItem) =>
-      item.SK.startsWith("TASK#")
+      item.SK?.startsWith("TASK#")
     );
 
     await refreshCommentsForTasks(loadedTasks);
@@ -89,7 +98,11 @@ export default function Home() {
     const savedWorkspace = localStorage.getItem("tasksync-workspace-id");
     const savedBoard = localStorage.getItem("tasksync-board-id");
     const savedUser = localStorage.getItem("tasksync-user-id");
+    const savedToken = localStorage.getItem("tasksync-auth-token");
+    const savedEmail = localStorage.getItem("tasksync-auth-email");
 
+    if (savedToken) setAuthToken(savedToken);
+    if (savedEmail) setAuthEmail(savedEmail);
     if (savedUser) setUserId(savedUser);
 
     if (savedWorkspace) {
@@ -127,11 +140,11 @@ export default function Home() {
 
     socket.onmessage = async (event) => {
       console.log("WebSocket message:", event.data);
+
       try {
         const data = JSON.parse(event.data);
 
         if (data.type === "BOARD_UPDATED" && data.boardId === boardId) {
-          console.log("Refreshing board due to realtime update...");
           await refreshBoard(boardId);
         }
       } catch (err) {
@@ -142,15 +155,63 @@ export default function Home() {
     return () => {
       socket.close();
     };
-  }, []);
+  }, [boardId]);
+
+  const handleSignUp = async () => {
+    if (!authEmail || !authPassword) return;
+
+    try {
+      setAuthMessage("Creating account...");
+      await signUp(authEmail, authPassword);
+      setAuthMessage("Signup successful. Check your email for a confirmation code.");
+    } catch (error: any) {
+      setAuthMessage(error.message || "Signup failed.");
+    }
+  };
+
+  const handleConfirmSignUp = async () => {
+    if (!authEmail || !confirmCode) return;
+
+    try {
+      setAuthMessage("Confirming account...");
+      await confirmSignUp(authEmail, confirmCode);
+      setAuthMessage("Account confirmed. You can now log in.");
+    } catch (error: any) {
+      setAuthMessage(error.message || "Confirmation failed.");
+    }
+  };
+
+  const handleSignIn = async () => {
+    if (!authEmail || !authPassword) return;
+
+    try {
+      setAuthMessage("Signing in...");
+      const token = await signIn(authEmail, authPassword);
+
+      setAuthToken(token);
+      localStorage.setItem("tasksync-auth-token", token);
+      localStorage.setItem("tasksync-auth-email", authEmail);
+
+      setAuthMessage("Signed in successfully.");
+    } catch (error: any) {
+      setAuthMessage(error.message || "Login failed.");
+    }
+  };
+
+  const handleSignOut = () => {
+    setAuthToken("");
+    localStorage.removeItem("tasksync-auth-token");
+    localStorage.removeItem("tasksync-auth-email");
+    setAuthMessage("Signed out.");
+  };
 
   const ensureDemoUser = async () => {
     let currentUserId = userId;
 
     if (!currentUserId) {
       const user = await createUser({
-        name: "Adi",
-        email: "adi@example.com",
+        name: authEmail || "Adi",
+        email: authEmail || "adi@example.com",
       });
 
       currentUserId = user.userId;
@@ -191,7 +252,7 @@ export default function Home() {
     await refreshBoard(board.boardId);
     setLoading(false);
   };
-/** 
+
   const handleCreateTask = async () => {
     if (!boardId || !taskTitle.trim()) return;
 
@@ -208,46 +269,19 @@ export default function Home() {
     await refreshBoard(boardId);
     setLoading(false);
   };
-*/
-
-  const handleCreateTask = async () => {
-    if (!boardId || !taskTitle.trim()) return;
-
-    setLoading(true);
-
-    const createdTask = await createTask(boardId, {
-      title: taskTitle,
-      description: "",
-      columnId: "todo",
-      position: 0,
-    });
-
-    //console.log("Created task:", createdTask);
-
-    setTaskTitle("");
-
-    const refreshedItems = await getBoard(boardId);
-    console.log("Refreshed board items:", refreshedItems);
-
-    setBoardItems(refreshedItems);
-
-    setLoading(false);
-  };
 
   const handleMoveTask = async (task: BoardItem, newColumnId: string) => {
     if (!boardId || !task.taskId || !task.title) return;
 
     setLoading(true);
 
-    const updated = await updateTask(boardId, task.taskId, {
+    await updateTask(boardId, task.taskId, {
       title: task.title,
       description: task.description || "",
       columnId: newColumnId,
       status: newColumnId,
       position: task.position ?? 0,
     });
-
-    console.log("Update response:", updated);
 
     await refreshBoard(boardId);
     setLoading(false);
@@ -297,9 +331,9 @@ export default function Home() {
   };
 
   const boardMetadata = boardItems.find((item) => item.SK === "METADATA");
-  const tasks = boardItems.filter(
-    (item) => item.SK && item.SK.startsWith("TASK#")
-  );
+
+  const tasks = boardItems.filter((item) => item.SK?.startsWith("TASK#"));
+
   const getTaskColumnId = (task: BoardItem) => {
     return task.columnId || task.status || "todo";
   };
@@ -351,15 +385,15 @@ export default function Home() {
               }}
             >
               Create boards, add tasks, move work across columns, and comment
-              on task activity using a deployed AWS Lambda, API Gateway, and
-              DynamoDB backend.
+              on task activity using AWS Lambda, API Gateway, DynamoDB,
+              WebSockets, and Cognito.
             </p>
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={handleCreateBoard}
-              disabled={loading}
+              disabled={loading || !authToken}
               style={{
                 border: "none",
                 background: "#111827",
@@ -370,7 +404,7 @@ export default function Home() {
                 fontWeight: 600,
               }}
             >
-              {loading ? "Loading..." : "Create Board"}
+              {loading ? "Loading..." : authToken ? "Create Board" : "Sign in first"}
             </button>
 
             {boardId && (
@@ -393,7 +427,152 @@ export default function Home() {
           </div>
         </div>
 
-        {boardId ? (
+        <div
+          style={{
+            background: "white",
+            border: "1px solid #e5e7eb",
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 24,
+            boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 20 }}>Account</h2>
+
+          <p style={{ margin: "8px 0 16px", color: "#6b7280", fontSize: 14 }}>
+            {authToken
+              ? `Signed in as ${authEmail}`
+              : "Create or sign into a Cognito-backed account."}
+          </p>
+
+          {!authToken ? (
+            <>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="Email"
+                  style={{
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 10,
+                    minWidth: 220,
+                  }}
+                />
+
+                <input
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="Password"
+                  type="password"
+                  style={{
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 10,
+                    minWidth: 220,
+                  }}
+                />
+
+                <button
+                  onClick={handleSignUp}
+                  style={{
+                    border: "none",
+                    background: "#4f46e5",
+                    color: "white",
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Sign Up
+                </button>
+
+                <button
+                  onClick={handleSignIn}
+                  style={{
+                    border: "none",
+                    background: "#111827",
+                    color: "white",
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Log In
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <input
+                  value={confirmCode}
+                  onChange={(e) => setConfirmCode(e.target.value)}
+                  placeholder="Confirmation code"
+                  style={{
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 10,
+                    minWidth: 220,
+                  }}
+                />
+
+                <button
+                  onClick={handleConfirmSignUp}
+                  style={{
+                    border: "1px solid #d1d5db",
+                    background: "white",
+                    color: "#374151",
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              onClick={handleSignOut}
+              style={{
+                border: "1px solid #d1d5db",
+                background: "white",
+                color: "#374151",
+                padding: "10px 14px",
+                borderRadius: 10,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Sign Out
+            </button>
+          )}
+
+          {authMessage && (
+            <p style={{ margin: "12px 0 0", color: "#6b7280", fontSize: 13 }}>
+              {authMessage}
+            </p>
+          )}
+        </div>
+
+        {!authToken ? (
+          <div
+            style={{
+              background: "white",
+              border: "1px solid #e5e7eb",
+              borderRadius: 16,
+              padding: 32,
+              boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Sign in to access your workspace</h2>
+            <p style={{ color: "#6b7280", marginBottom: 0 }}>
+              Create or log into a Cognito account before creating boards and tasks.
+            </p>
+          </div>
+        ) : boardId ? (
           <section>
             <div
               style={{
@@ -418,12 +597,13 @@ export default function Home() {
               </p>
 
               <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
-                Demo User ID: {userId || "Not created yet"}
+                App User ID: {userId || "Not created yet"}
               </p>
 
               <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
                 Members: {members.length}
               </p>
+
               <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
                 Realtime: {realtimeStatus}
               </p>
@@ -474,9 +654,9 @@ export default function Home() {
               }}
             >
               {columns.map((column) => {
-                const columnTasks = tasks.filter((task) => {
-                  return getTaskColumnId(task) === column.id;
-                });
+                const columnTasks = tasks.filter(
+                  (task) => getTaskColumnId(task) === column.id
+                );
 
                 return (
                   <div
@@ -569,7 +749,9 @@ export default function Home() {
                           }}
                         >
                           {columns
-                            .filter((target) => target.id !== getTaskColumnId(task))
+                            .filter(
+                              (target) => target.id !== getTaskColumnId(task)
+                            )
                             .map((target) => (
                               <button
                                 key={target.id}
