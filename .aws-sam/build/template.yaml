@@ -13,6 +13,33 @@ Globals:
         WS_API_ENDPOINT:
           Fn::Sub: https://${RealtimeApi}.execute-api.${AWS::Region}.amazonaws.com/Prod
 Resources:
+  TaskSyncUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: TaskSyncUserPool
+      UsernameAttributes:
+      - email
+      AutoVerifiedAttributes:
+      - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+  TaskSyncUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: TaskSyncWebClient
+      UserPoolId:
+        Ref: TaskSyncUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+      - ALLOW_USER_PASSWORD_AUTH
+      - ALLOW_USER_SRP_AUTH
+      - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
   ServerlessRestApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -354,3 +381,11 @@ Outputs:
     Description: WebSocket endpoint URL
     Value:
       Fn::Sub: wss://${RealtimeApi}.execute-api.${AWS::Region}.amazonaws.com/Prod
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value:
+      Ref: TaskSyncUserPool
+  CognitoUserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value:
+      Ref: TaskSyncUserPoolClient
