@@ -13,6 +13,22 @@ Globals:
         WS_API_ENDPOINT: !Sub "https://${RealtimeApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
 
 Resources:
+  SearchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: dist/functions/search/handler.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TaskSyncTable
+      Events:
+        SearchTasks:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /search
+            Method: GET
+
   TaskSyncUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -184,6 +200,12 @@ Resources:
       CodeUri: ../backend
       Handler: dist/functions/cors/handler.handler
       Events:
+        OptionsSearch:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /search
+            Method: OPTIONS
         OptionsBoards:
           Type: Api
           Properties:
