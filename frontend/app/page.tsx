@@ -45,6 +45,7 @@ const columns = [
 ];
 
 export default function Home() {
+  const [realtimeStatus, setRealtimeStatus] = useState("Disconnected");
   const [boardId, setBoardId] = useState("");
   const [workspaceId, setWorkspaceId] = useState("");
   const [userId, setUserId] = useState("");
@@ -100,6 +101,37 @@ export default function Home() {
       setBoardId(savedBoard);
       refreshBoard(savedBoard);
     }
+  }, []);
+
+  useEffect(() => {
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+
+    if (!wsUrl) return;
+
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      setRealtimeStatus("Connected");
+      console.log("WebSocket connected");
+    };
+
+    socket.onclose = () => {
+      setRealtimeStatus("Disconnected");
+      console.log("WebSocket disconnected");
+    };
+
+    socket.onerror = (error) => {
+      setRealtimeStatus("Error");
+      console.error("WebSocket error:", error);
+    };
+
+    socket.onmessage = (event) => {
+      console.log("WebSocket message:", event.data);
+    };
+
+    return () => {
+      socket.close();
+    };
   }, []);
 
   const ensureDemoUser = async () => {
@@ -381,6 +413,9 @@ export default function Home() {
 
               <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
                 Members: {members.length}
+              </p>
+              <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
+                Realtime: {realtimeStatus}
               </p>
 
               <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
