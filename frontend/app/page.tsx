@@ -125,8 +125,18 @@ export default function Home() {
       console.error("WebSocket error:", error);
     };
 
-    socket.onmessage = (event) => {
+    socket.onmessage = async (event) => {
       console.log("WebSocket message:", event.data);
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "BOARD_UPDATED" && data.boardId === boardId) {
+          console.log("Refreshing board due to realtime update...");
+          await refreshBoard(boardId);
+        }
+      } catch (err) {
+        console.error("Invalid WS message:", err);
+      }
     };
 
     return () => {
