@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import {
   addWorkspaceMember,
   createBoard,
+  createComment,
   createTask,
   createUser,
   createWorkspace,
   getBoard,
+  getComments,
   getWorkspaceMembers,
   updateTask,
 } from "../lib/api";
@@ -17,6 +19,7 @@ type BoardItem = {
   SK: string;
   boardId?: string;
   taskId?: string;
+  status?: string;
   name?: string;
   title?: string;
   description?: string;
@@ -25,6 +28,14 @@ type BoardItem = {
   createdAt?: string;
   userId?: string;
   role?: string;
+};
+
+type CommentItem = {
+  commentId: string;
+  taskId: string;
+  userId: string;
+  body: string;
+  createdAt: string;
 };
 
 const columns = [
@@ -41,10 +52,36 @@ export default function Home() {
   const [boardItems, setBoardItems] = useState<BoardItem[]>([]);
   const [taskTitle, setTaskTitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const [commentsByTask, setCommentsByTask] = useState<
+    Record<string, CommentItem[]>
+  >({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>(
+    {}
+  );
+
+  const refreshCommentsForTasks = async (tasksToLoad: BoardItem[]) => {
+    const nextComments: Record<string, CommentItem[]> = {};
+
+    await Promise.all(
+      tasksToLoad.map(async (task) => {
+        if (!task.taskId) return;
+        const comments = await getComments(task.taskId);
+        nextComments[task.taskId] = comments;
+      })
+    );
+
+    setCommentsByTask(nextComments);
+  };
 
   const refreshBoard = async (id: string) => {
     const items = await getBoard(id);
     setBoardItems(items);
+
+    const loadedTasks = items.filter((item: BoardItem) =>
+      item.SK.startsWith("TASK#")
+    );
+
+    await refreshCommentsForTasks(loadedTasks);
   };
 
   useEffect(() => {
@@ -112,7 +149,7 @@ export default function Home() {
     await refreshBoard(board.boardId);
     setLoading(false);
   };
-
+/** 
   const handleCreateTask = async () => {
     if (!boardId || !taskTitle.trim()) return;
 
@@ -129,20 +166,76 @@ export default function Home() {
     await refreshBoard(boardId);
     setLoading(false);
   };
+*/
+
+  const handleCreateTask = async () => {
+    if (!boardId || !taskTitle.trim()) return;
+
+    setLoading(true);
+
+    const createdTask = await createTask(boardId, {
+      title: taskTitle,
+      description: "",
+      columnId: "todo",
+      position: 0,
+    });
+
+    //console.log("Created task:", createdTask);
+
+    setTaskTitle("");
+
+    const refreshedItems = await getBoard(boardId);
+    console.log("Refreshed board items:", refreshedItems);
+
+    setBoardItems(refreshedItems);
+
+    setLoading(false);
+  };
 
   const handleMoveTask = async (task: BoardItem, newColumnId: string) => {
     if (!boardId || !task.taskId || !task.title) return;
 
     setLoading(true);
 
-    await updateTask(boardId, task.taskId, {
+    const updated = await updateTask(boardId, task.taskId, {
       title: task.title,
       description: task.description || "",
       columnId: newColumnId,
+      status: newColumnId,
       position: task.position ?? 0,
     });
 
+    console.log("Update response:", updated);
+
     await refreshBoard(boardId);
+    setLoading(false);
+  };
+
+  const handleAddComment = async (task: BoardItem) => {
+    if (!task.taskId || !userId) return;
+
+    const commentBody = commentInputs[task.taskId]?.trim();
+    if (!commentBody) return;
+
+    setLoading(true);
+
+    await createComment(task.taskId, {
+      userId,
+      body: commentBody,
+    });
+
+    setCommentInputs((prev) => ({
+      ...prev,
+      [task.taskId!]: "",
+    }));
+
+    const comments = await getComments(task.taskId);
+
+    setCommentsByTask((prev) => ({
+      ...prev,
+      [task.taskId!]: comments,
+    }));
+
     setLoading(false);
   };
 
@@ -157,10 +250,17 @@ export default function Home() {
     setMembers([]);
     setTaskTitle("");
     setBoardItems([]);
+    setCommentsByTask({});
+    setCommentInputs({});
   };
 
   const boardMetadata = boardItems.find((item) => item.SK === "METADATA");
-  const tasks = boardItems.filter((item) => item.SK.startsWith("TASK#"));
+  const tasks = boardItems.filter(
+    (item) => item.SK && item.SK.startsWith("TASK#")
+  );
+  const getTaskColumnId = (task: BoardItem) => {
+    return task.columnId || task.status || "todo";
+  };
 
   return (
     <main
@@ -208,8 +308,9 @@ export default function Home() {
                 maxWidth: 620,
               }}
             >
-              Create boards, add tasks, and move work across columns using a
-              deployed AWS Lambda, API Gateway, and DynamoDB backend.
+              Create boards, add tasks, move work across columns, and comment
+              on task activity using a deployed AWS Lambda, API Gateway, and
+              DynamoDB backend.
             </p>
           </div>
 
@@ -328,9 +429,9 @@ export default function Home() {
               }}
             >
               {columns.map((column) => {
-                const columnTasks = tasks.filter(
-                  (task) => task.columnId === column.id
-                );
+                const columnTasks = tasks.filter((task) => {
+                  return getTaskColumnId(task) === column.id;
+                });
 
                 return (
                   <div
@@ -423,13 +524,11 @@ export default function Home() {
                           }}
                         >
                           {columns
-                            .filter((target) => target.id !== task.columnId)
+                            .filter((target) => target.id !== getTaskColumnId(task))
                             .map((target) => (
                               <button
                                 key={target.id}
-                                onClick={() =>
-                                  handleMoveTask(task, target.id)
-                                }
+                                onClick={() => handleMoveTask(task, target.id)}
                                 disabled={loading}
                                 style={{
                                   border: "1px solid #d1d5db",
@@ -438,14 +537,76 @@ export default function Home() {
                                   borderRadius: 999,
                                   padding: "6px 10px",
                                   fontSize: 12,
-                                  cursor: loading
-                                    ? "not-allowed"
-                                    : "pointer",
+                                  cursor: loading ? "not-allowed" : "pointer",
                                 }}
                               >
                                 Move to {target.label}
                               </button>
                             ))}
+                        </div>
+
+                        <div style={{ marginTop: 14 }}>
+                          <input
+                            value={commentInputs[task.taskId || ""] || ""}
+                            onChange={(e) =>
+                              setCommentInputs((prev) => ({
+                                ...prev,
+                                [task.taskId || ""]: e.target.value,
+                              }))
+                            }
+                            placeholder="Add a comment..."
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: 8,
+                              fontSize: 13,
+                              boxSizing: "border-box",
+                            }}
+                          />
+
+                          <button
+                            onClick={() => handleAddComment(task)}
+                            disabled={loading || !task.taskId || !userId}
+                            style={{
+                              marginTop: 8,
+                              border: "none",
+                              background: "#111827",
+                              color: "white",
+                              borderRadius: 8,
+                              padding: "7px 10px",
+                              fontSize: 12,
+                              cursor: loading ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            Comment
+                          </button>
+
+                          {(commentsByTask[task.taskId || ""] || []).length >
+                            0 && (
+                            <div style={{ marginTop: 10 }}>
+                              {(commentsByTask[task.taskId || ""] || []).map(
+                                (comment) => (
+                                  <div
+                                    key={comment.commentId}
+                                    style={{
+                                      background: "#f9fafb",
+                                      border: "1px solid #e5e7eb",
+                                      borderRadius: 8,
+                                      padding: 8,
+                                      marginTop: 6,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    <strong>
+                                      {comment.userId.slice(0, 8)}
+                                    </strong>
+                                    : {comment.body}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

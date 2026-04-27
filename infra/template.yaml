@@ -22,6 +22,67 @@ Resources:
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
 
+  RealtimeApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: TaskSyncRealtimeApi
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  RealtimeConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref RealtimeApi
+      RouteKey: $connect
+      Target: !Sub "integrations/${RealtimeIntegration}"
+
+  RealtimeDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref RealtimeApi
+      RouteKey: $disconnect
+      Target: !Sub "integrations/${RealtimeIntegration}"
+
+  RealtimeIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref RealtimeApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RealtimeFunction.Arn}/invocations
+        - {}
+
+  RealtimeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: dist/functions/realtime/handler.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TaskSyncTable
+
+  RealtimePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RealtimeFunction
+      Principal: apigateway.amazonaws.com
+
+  RealtimeDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - RealtimeConnectRoute
+      - RealtimeDisconnectRoute
+    Properties:
+      ApiId: !Ref RealtimeApi
+
+  RealtimeStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref RealtimeApi
+      StageName: Prod
+      DeploymentId: !Ref RealtimeDeployment
+
   CommentsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -244,3 +305,6 @@ Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  WebSocketUrl:
+    Description: WebSocket endpoint URL
+    Value: !Sub "wss://${RealtimeApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
