@@ -11,10 +11,11 @@
     "@aws-sdk/client-dynamodb": "^3.1037.0",
     "@aws-sdk/lib-dynamodb": "^3.1037.0",
     "@types/aws-lambda": "8.10.145",
+    "@upstash/redis": "^1.37.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
-    "@types/node": "22.10.2",
+    "@types/node": "^22.10.2",
     "typescript": "5.7.2"
   }
 }

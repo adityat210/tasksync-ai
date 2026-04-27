@@ -11,7 +11,9 @@ Globals:
       Variables:
         TABLE_NAME: !Ref TaskSyncTable
         WS_API_ENDPOINT: !Sub "https://${RealtimeApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
-
+        UPSTASH_REDIS_REST_URL: "https://solid-glowworm-88703.upstash.io"
+        UPSTASH_REDIS_REST_TOKEN: "gQAAAAAAAVp_AAIgcDEwMGY4OWM2NTUyMTc0OTlkYjg2YWFmMWM0MWNiNzA3MA"
+        HUGGINGFACE_API_TOKEN: "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"
 Resources:
   SearchFunction:
     Type: AWS::Serverless::Function

@@ -1,6 +1,7 @@
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { db } from "../../shared/db/client";
 import { createHandler } from "../../shared/utils/handler";
+import { redis } from "../../shared/cache/redis";
 
 const TABLE_NAME = process.env.TABLE_NAME!;
 
@@ -38,12 +39,22 @@ function scoreTask(task: any, query: string) {
 export const handler = createHandler(async (event) => {
   const query = event.queryStringParameters?.q || "";
   const workspaceId = event.queryStringParameters?.workspaceId;
-
+  const cacheKey = `search:${workspaceId || "all"}:${query.toLowerCase()}`;
   if (!query.trim()) {
     return {
       error: "Missing search query",
     };
   }
+  if (redis) {
+    const cached = await redis.get(cacheKey);
+
+  if (cached) {
+    return {
+      ...(cached as object),
+      cacheHit: true,
+    };
+  }
+}
 
   const result = await db.send(
     new ScanCommand({
@@ -70,9 +81,19 @@ export const handler = createHandler(async (event) => {
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, 20);
 
-  return {
-    query,
-    count: ranked.length,
-    results: ranked,
-  };
+
+  const response = {
+  query,
+  count: ranked.length,
+  results: ranked,
+  cacheHit: false,
+};
+
+  if (redis) {
+    await redis.set(cacheKey, response, {
+      ex: 60,
+    });
+  }
+
+return response;
 });
