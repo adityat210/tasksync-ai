@@ -13,7 +13,7 @@ Globals:
         WS_API_ENDPOINT: !Sub "https://${RealtimeApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
         UPSTASH_REDIS_REST_URL: "https://solid-glowworm-88703.upstash.io"
         UPSTASH_REDIS_REST_TOKEN: "gQAAAAAAAVp_AAIgcDEwMGY4OWM2NTUyMTc0OTlkYjg2YWFmMWM0MWNiNzA3MA"
-        HUGGINGFACE_API_TOKEN: "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"
+        HUGGINGFACE_API_TOKEN: ""
 Resources:
   SearchFunction:
     Type: AWS::Serverless::Function
@@ -358,6 +358,22 @@ Resources:
             RestApiId: !Ref ServerlessRestApi
             Path: /boards/{boardId}/tasks/{taskId}
             Method: DELETE
+  AnalyzeTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: dist/functions/tasks/analyze.handler
+      Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TaskSyncTable
+      Events:
+        AnalyzeTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ServerlessRestApi
+            Path: /tasks/analyze
+            Method: POST
 
 Outputs:
   ApiUrl:
