@@ -9,26 +9,22 @@ const client = new DynamoDBClient({ region: REGION });
 const db = DynamoDBDocumentClient.from(client);
 
 const statuses = ["todo", "in-progress", "done"];
+const priorities = ["low", "medium", "high"];
 
-const taskTitles = [
-  "Design dashboard layout",
-  "Fix API error handling",
-  "Add loading states",
-  "Write onboarding copy",
-  "Review analytics events",
-  "Implement task filters",
-  "Refactor board state",
-  "Add comment threading",
-  "Create mobile layout",
-  "Test workspace invites",
-  "Improve search relevance",
-  "Add duplicate detection",
-  "Write deployment docs",
-  "Polish task cards",
-  "Review WebSocket sync",
+const taskGroups = [
+  ["Fix login bug", "Resolve authentication issue", "Debug sign-in failure"],
+  ["Improve search relevance", "Tune task ranking", "Refine search results"],
+  ["Add loading states", "Implement loading indicators", "Polish async UI states"],
+  ["Create mobile layout", "Build responsive board view", "Improve mobile task cards"],
+  ["Review WebSocket sync", "Debug realtime updates", "Improve cross-client refresh"],
+  ["Add duplicate detection", "Detect similar tasks", "Flag repeated task requests"],
+  ["Write deployment docs", "Document SAM deploy flow", "Create backend setup guide"],
+  ["Polish task cards", "Improve task card design", "Refine board UI styling"],
+  ["Test workspace invites", "Validate workspace membership flow", "Review shared workspace access"],
+  ["Fix API error handling", "Improve Lambda error responses", "Standardize API failure states"],
 ];
 
-const comments = [
+const commentTemplates = [
   "Looks good, moving this forward.",
   "Can we revisit the edge case here?",
   "I added context from the last meeting.",
@@ -37,6 +33,8 @@ const comments = [
   "Needs review before shipping.",
   "This should be prioritized for the demo.",
   "Adding notes for the next sprint.",
+  "This overlaps with a similar workspace issue.",
+  "Search should make this easier to find later.",
 ];
 
 async function put(item: Record<string, unknown>) {
@@ -48,9 +46,13 @@ async function put(item: Record<string, unknown>) {
   );
 }
 
-async function main() {
-  const now = new Date().toISOString();
+function daysAgo(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString();
+}
 
+async function main() {
   const users = Array.from({ length: 6 }, (_, i) => ({
     userId: randomUUID(),
     name: `Demo User ${i + 1}`,
@@ -62,23 +64,24 @@ async function main() {
     name: `Demo Workspace ${i + 1}`,
   }));
 
-  console.log("Seeding users...");
+  console.log("Seeding realistic users...");
 
   for (const user of users) {
     await put({
       PK: `USER#${user.userId}`,
       SK: "METADATA",
       ...user,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: daysAgo(30),
+      updatedAt: daysAgo(30),
     });
   }
 
   console.log("Seeding workspaces, memberships, boards, tasks, comments...");
 
+  let boardCount = 0;
   let taskCount = 0;
   let commentCount = 0;
-  let boardCount = 0;
+  let duplicateLikeTaskCount = 0;
 
   for (let w = 0; w < workspaces.length; w++) {
     const workspace = workspaces[w];
@@ -87,8 +90,8 @@ async function main() {
       PK: `WORKSPACE#${workspace.workspaceId}`,
       SK: "METADATA",
       ...workspace,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: daysAgo(28 - w),
+      updatedAt: daysAgo(3),
     });
 
     for (let u = 0; u < users.length; u++) {
@@ -98,7 +101,7 @@ async function main() {
         workspaceId: workspace.workspaceId,
         userId: users[u].userId,
         role: u === 0 ? "owner" : "member",
-        createdAt: now,
+        createdAt: daysAgo(27 - w),
       });
     }
 
@@ -114,16 +117,32 @@ async function main() {
         boardId,
         workspaceId: workspace.workspaceId,
         name: `Project Board ${boardCount}`,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: daysAgo(21 - b),
+        updatedAt: daysAgo(1),
       });
 
       const tasksPerBoard = 50;
 
       for (let t = 0; t < tasksPerBoard; t++) {
         const taskId = randomUUID();
+        const group = taskGroups[t % taskGroups.length];
+        const title = group[t % group.length];
+
+        if (t % group.length !== 0) {
+          duplicateLikeTaskCount++;
+        }
+
         const status = statuses[t % statuses.length];
-        const title = `${taskTitles[t % taskTitles.length]} ${t + 1}`;
+        const priority = priorities[t % priorities.length];
+
+        const tags = [
+          t % 2 === 0 ? "frontend" : "backend",
+          t % 3 === 0 ? "urgent" : "normal",
+          t % 5 === 0 ? "search" : "workflow",
+        ];
+
+        const createdAt = daysAgo((t % 25) + 1);
+        const updatedAt = daysAgo(t % 7);
 
         taskCount++;
 
@@ -133,39 +152,75 @@ async function main() {
           taskId,
           boardId,
           workspaceId: workspace.workspaceId,
+
           title,
-          description: `Seeded task ${taskCount} for simulated collaboration and search evaluation.`,
+          description: `Seeded task ${taskCount} for search, recommendation, and duplicate-detection evaluation.`,
+
           status,
           columnId: status,
+          priority,
+          tags,
+
           assigneeUserId: users[t % users.length].userId,
+          createdByUserId: users[(t + b) % users.length].userId,
           position: t,
-          createdAt: now,
-          updatedAt: now,
-          tags: [
-            t % 2 === 0 ? "frontend" : "backend",
-            t % 3 === 0 ? "urgent" : "normal",
-          ],
+
+          createdAt,
+          updatedAt,
         });
 
         const commentsPerTask = t % 2 === 0 ? 2 : 1;
 
         for (let c = 0; c < commentsPerTask; c++) {
           const commentId = randomUUID();
+          const baseComment = commentTemplates[(t + c) % commentTemplates.length];
+
+          const commentBody =
+            baseComment +
+            (t % 6 === 0
+              ? " This may be related to another duplicate task."
+              : "");
+
           commentCount++;
 
           await put({
             PK: `TASK#${taskId}`,
-            SK: `COMMENT#${new Date().toISOString()}#${commentId}`,
+            SK: `COMMENT#${daysAgo((t + c) % 14)}#${commentId}`,
             commentId,
             taskId,
+            boardId,
+            workspaceId: workspace.workspaceId,
             userId: users[(t + c) % users.length].userId,
-            body: comments[(t + c) % comments.length],
-            createdAt: new Date().toISOString(),
+            body: commentBody,
+            createdAt: daysAgo((t + c) % 14),
+          });
+        }
+
+        if (t % 10 === 0) {
+          await put({
+            PK: `BOARD#${boardId}`,
+            SK: `ACTIVITY#${updatedAt}#${randomUUID()}`,
+            boardId,
+            workspaceId: workspace.workspaceId,
+            taskId,
+            userId: users[t % users.length].userId,
+            type: "TASK_MOVED",
+            fromColumn: "todo",
+            toColumn: status,
+            createdAt: updatedAt,
           });
         }
       }
     }
   }
+
+  const totalRecords =
+    users.length +
+    workspaces.length +
+    workspaces.length * users.length +
+    boardCount +
+    taskCount +
+    commentCount;
 
   console.log("Seed complete.");
   console.log({
@@ -174,13 +229,8 @@ async function main() {
     boards: boardCount,
     tasks: taskCount,
     comments: commentCount,
-    totalRecords:
-      users.length +
-      workspaces.length +
-      workspaces.length * users.length +
-      boardCount +
-      taskCount +
-      commentCount,
+    duplicateLikeTasks: duplicateLikeTaskCount,
+    totalRecords,
   });
 }
 
