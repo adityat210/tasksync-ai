@@ -29,6 +29,8 @@ type BoardItem = {
   createdAt?: string;
   userId?: string;
   role?: string;
+  relevanceScore?: number;
+  similarity?: number;
 };
 
 type CommentItem = {
@@ -68,6 +70,14 @@ export default function Home() {
   const [authMessage, setAuthMessage] = useState("");
 
   const [realtimeStatus, setRealtimeStatus] = useState("Disconnected");
+
+  const [aiSuggestions, setAiSuggestions] = useState<BoardItem[]>([]);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<BoardItem[]>([]);
+  const [searchCacheHit, setSearchCacheHit] = useState<boolean | null>(null);
 
   const refreshCommentsForTasks = async (tasksToLoad: BoardItem[]) => {
     const nextComments: Record<string, CommentItem[]> = {};
@@ -163,7 +173,9 @@ export default function Home() {
     try {
       setAuthMessage("Creating account...");
       await signUp(authEmail, authPassword);
-      setAuthMessage("Signup successful. Check your email for a confirmation code.");
+      setAuthMessage(
+        "Signup successful. Check your email for a confirmation code."
+      );
     } catch (error: any) {
       setAuthMessage(error.message || "Signup failed.");
     }
@@ -253,6 +265,54 @@ export default function Home() {
     setLoading(false);
   };
 
+  const handleAnalyzeTask = async () => {
+    if (!taskTitle.trim()) return;
+
+    setAnalyzing(true);
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/analyze`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceId: workspaceId || undefined,
+          title: taskTitle,
+          description: "",
+        }),
+      });
+
+      const data = await res.json();
+
+      setAiSuggestions(data.possibleDuplicates || []);
+      setSuggestedTags(data.suggestedTags || []);
+    } catch (err) {
+      console.error("Analyze failed:", err);
+    }
+
+    setAnalyzing(false);
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/search?q=${encodeURIComponent(
+          searchQuery
+        )}${workspaceId ? `&workspaceId=${workspaceId}` : ""}`
+      );
+
+      const data = await res.json();
+
+      setSearchResults(data.results || []);
+      setSearchCacheHit(Boolean(data.cacheHit));
+    } catch (err) {
+      console.error("Search failed:", err);
+    }
+  };
+
   const handleCreateTask = async () => {
     if (!boardId || !taskTitle.trim()) return;
 
@@ -266,6 +326,8 @@ export default function Home() {
     });
 
     setTaskTitle("");
+    setAiSuggestions([]);
+    setSuggestedTags([]);
     await refreshBoard(boardId);
     setLoading(false);
   };
@@ -328,6 +390,11 @@ export default function Home() {
     setBoardItems([]);
     setCommentsByTask({});
     setCommentInputs({});
+    setAiSuggestions([]);
+    setSuggestedTags([]);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchCacheHit(null);
   };
 
   const boardMetadata = boardItems.find((item) => item.SK === "METADATA");
@@ -384,9 +451,9 @@ export default function Home() {
                 maxWidth: 620,
               }}
             >
-              Create boards, add tasks, move work across columns, and comment
-              on task activity using AWS Lambda, API Gateway, DynamoDB,
-              WebSockets, and Cognito.
+              Create boards, add tasks, move work across columns, search work
+              items, analyze duplicate tasks, and comment on activity using AWS
+              Lambda, API Gateway, DynamoDB, Redis, WebSockets, and Cognito.
             </p>
           </div>
 
@@ -400,7 +467,7 @@ export default function Home() {
                 color: "white",
                 padding: "10px 16px",
                 borderRadius: 10,
-                cursor: loading ? "not-allowed" : "pointer",
+                cursor: loading || !authToken ? "not-allowed" : "pointer",
                 fontWeight: 600,
               }}
             >
@@ -608,41 +675,162 @@ export default function Home() {
                 Realtime: {realtimeStatus}
               </p>
 
-              <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
-                <input
-                  value={taskTitle}
-                  onChange={(e) => setTaskTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateTask();
-                  }}
-                  placeholder="Add a new task..."
-                  style={{
-                    flex: 1,
-                    padding: "12px 14px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 10,
-                    fontSize: 15,
-                    outline: "none",
-                  }}
-                />
+              <div style={{ marginTop: 20 }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCreateTask();
+                    }}
+                    placeholder="Add a new task..."
+                    style={{
+                      flex: 1,
+                      padding: "12px 14px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: 10,
+                      fontSize: 15,
+                      outline: "none",
+                    }}
+                  />
 
-                <button
-                  onClick={handleCreateTask}
-                  disabled={loading || !taskTitle.trim()}
-                  style={{
-                    border: "none",
-                    background:
-                      loading || !taskTitle.trim() ? "#9ca3af" : "#4f46e5",
-                    color: "white",
-                    padding: "12px 18px",
-                    borderRadius: 10,
-                    cursor:
-                      loading || !taskTitle.trim() ? "not-allowed" : "pointer",
-                    fontWeight: 700,
-                  }}
-                >
-                  Add Task
-                </button>
+                  <button
+                    onClick={handleAnalyzeTask}
+                    disabled={!taskTitle.trim() || analyzing}
+                    style={{
+                      border: "none",
+                      background:
+                        !taskTitle.trim() || analyzing ? "#9ca3af" : "#6366f1",
+                      color: "white",
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      fontWeight: 700,
+                      cursor:
+                        !taskTitle.trim() || analyzing ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {analyzing ? "Analyzing..." : "Analyze"}
+                  </button>
+
+                  <button
+                    onClick={handleCreateTask}
+                    disabled={loading || !taskTitle.trim()}
+                    style={{
+                      border: "none",
+                      background:
+                        loading || !taskTitle.trim() ? "#9ca3af" : "#4f46e5",
+                      color: "white",
+                      padding: "12px 18px",
+                      borderRadius: 10,
+                      cursor:
+                        loading || !taskTitle.trim()
+                          ? "not-allowed"
+                          : "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Add Task
+                  </button>
+                </div>
+
+                {(aiSuggestions.length > 0 || suggestedTags.length > 0) && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      background: "#f9fafb",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 10,
+                    }}
+                  >
+                    {suggestedTags.length > 0 && (
+                      <p style={{ margin: 0, fontSize: 13 }}>
+                        <strong>Suggested Tags:</strong>{" "}
+                        {suggestedTags.join(", ")}
+                      </p>
+                    )}
+
+                    {aiSuggestions.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <strong style={{ fontSize: 13 }}>
+                          Possible Duplicates:
+                        </strong>
+                        <ul style={{ margin: "6px 0 0", paddingLeft: 16 }}>
+                          {aiSuggestions.map((task) => (
+                            <li key={task.taskId} style={{ fontSize: 13 }}>
+                              {task.title}
+                              {typeof task.similarity === "number"
+                                ? ` (${task.similarity.toFixed(2)})`
+                                : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSearch();
+                    }}
+                    placeholder="Search seeded tasks..."
+                    style={{
+                      flex: 1,
+                      padding: "10px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: 10,
+                    }}
+                  />
+
+                  <button
+                    onClick={handleSearch}
+                    disabled={!searchQuery.trim()}
+                    style={{
+                      border: "none",
+                      background: !searchQuery.trim() ? "#9ca3af" : "#111827",
+                      color: "white",
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      fontWeight: 700,
+                      cursor: !searchQuery.trim() ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Search
+                  </button>
+                </div>
+
+                {searchResults.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      background: "#f9fafb",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 10,
+                    }}
+                  >
+                    <strong style={{ fontSize: 13 }}>
+                      Search Results{" "}
+                      {searchCacheHit !== null &&
+                        `(Redis cache: ${searchCacheHit ? "hit" : "miss"})`}
+                    </strong>
+
+                    <ul style={{ margin: "6px 0 0", paddingLeft: 16 }}>
+                      {searchResults.slice(0, 8).map((task) => (
+                        <li key={task.taskId} style={{ fontSize: 13 }}>
+                          {task.title}
+                          {typeof task.relevanceScore === "number"
+                            ? ` — score ${task.relevanceScore}`
+                            : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 

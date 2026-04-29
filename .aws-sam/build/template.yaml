@@ -217,6 +217,13 @@ Resources:
       CodeUri: CorsFunction
       Handler: dist/functions/cors/handler.handler
       Events:
+        OptionsAnalyzeTask:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ServerlessRestApi
+            Path: /tasks/analyze
+            Method: OPTIONS
         OptionsSearch:
           Type: Api
           Properties:
